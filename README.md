@@ -90,7 +90,7 @@ Automaattiset vahvistusviestit:
 **Mikko @ WP Saavutettavuus**
 - wpsaavutettavuus.fi
 
-**v1.0.0 - ZeroClick Sync (2026-03-07)**
+**v1.6.2 - ZeroClick Sync (2026-03-07)**
 =======
 **A WordPress booking plugin that actually respects your time — and everyone's ability to use it.**
 

@@ -1,0 +1,18 @@
+# Node-moduulit (tärkein!)
+node_modules/
+
+# Ympäristömuuttujat (tärkeä tietoturva!)
+.env
+.env.local
+.env.*.local
+
+# Käyttöjärjestelmän tiedostot
+.DS_Store
+Thumbs.db
+
+# VS Coden omat asetukset
+.vscode/
+
+# Build-kansiot (jos käytät Viteä, Webpackia tms.)
+dist/
+build/

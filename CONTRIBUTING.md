@@ -1,77 +1,90 @@
 # Contributing
 
-## Prerequisites
+Thanks for your interest in WPSA ZeroClick Sync!
+
+## Development Setup
+
+### Requirements
 
 - Node.js 20+
-- npm 10+
-- WordPress 6.0+ (for PHP/plugin testing)
 - PHP 7.4+
+- WordPress 6.0+ (local install recommended: [LocalWP](https://localwp.com))
 
-## Frontend setup
+### Installation
 
 ```bash
 git clone https://github.com/mikko-lab/wpsa-booking.git
 cd wpsa-booking
 npm install
-npm run dev   # http://localhost:5173
+npm run build
 ```
 
-## Build
+Copy or symlink the plugin folder to your local WordPress installation:
 
 ```bash
-npm run type-check   # TypeScript
-npm run lint         # ESLint
-npm run build        # production build → public/
+ln -s $(pwd) /path/to/wordpress/wp-content/plugins/wpsa-booking
 ```
 
-CI runs all three automatically on every push and PR.
+Activate the plugin in WordPress Admin → Plugins.
 
-## WordPress plugin setup
-
-Copy the plugin directory to your WordPress installation:
+### Development commands
 
 ```bash
-cp -r . /path/to/wordpress/wp-content/plugins/wpsa-booking
+npm run dev      # watch mode (Vite)
+npm run build    # production build
+npm run lint     # lint TypeScript
+npx tsc --noEmit # TypeScript typecheck
 ```
 
-Activate from **Plugins → Installed Plugins**, then configure under **Settings → WPSA Booking**.
+## How to Contribute
 
-See [INSTALLATION.md](INSTALLATION.md) for full setup including Google Calendar and Microsoft Teams OAuth.
+### Bug reports
 
-## Accessibility requirements
+Open an [Issue](https://github.com/mikko-lab/wpsa-booking/issues) and include:
 
-**All contributions must maintain WCAG 2.2 Level AA compliance:**
+- What you did
+- What you expected to happen
+- What actually happened
+- WordPress version, PHP version, browser
 
-- Use native HTML elements (`<button>`, `<input>`, `<a>`) — no `<div onClick>`
-- Keyboard navigation must work without a mouse
-- All interactive elements need visible focus indicators
-- Screen reader tested: VoiceOver, NVDA, JAWS
-- IBM Equal Access Checker: 0 violations before submitting PR
-- No `any` types in TypeScript (strict mode)
+### Feature requests
 
-## Commit style
+Open an Issue with the title `[feat]: feature name`. If the feature affects accessibility, mention which WCAG criterion it relates to.
 
-Use [Conventional Commits](https://www.conventionalcommits.org/):
+### Pull requests
 
-```
-feat: add Stripe payment at booking time
-fix: prevent double-booking when lock expires
-a11y: improve focus management after modal closes
-chore: bump vite to 5.2
-```
+1. Fork the repository
+2. Create a branch: `git checkout -b feat/feature-name`
+3. Make your changes
+4. Verify TypeScript: `npx tsc --noEmit`
+5. Verify lint: `npm run lint`
+6. Verify PHP: `php -l *.php includes/*.php`
+7. Commit with a clear message (see below)
+8. Open a Pull Request against `main`
 
-Common prefixes: `feat`, `fix`, `a11y`, `chore`, `ci`, `docs`, `refactor`.
+## Accessibility Requirements
 
-## Branching
+All changes must maintain WCAG 2.2 Level AA compliance:
 
-- `main` — stable releases
-- `feat/<name>` — new features
-- `fix/<name>` — bug fixes
+- Keyboard navigation (Tab, Arrow keys, Enter, Escape — no mouse required)
+- Semantic HTML (real `<button>`, `<input>`, `<a>` — no `<div onClick>`)
+- ARIA only where native HTML is insufficient
+- IBM Equal Access Checker: 0 violations
+- Color contrast ≥ 4.5:1 for normal text
+- Touch targets ≥ 48×48px
 
-Open a pull request against `main`. CI must pass before merging.
+## Commit Convention
 
-## What won't be accepted
+| Prefix | When to use |
+|--------|-------------|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `a11y:` | Accessibility fix |
+| `ci:` | CI/CD changes |
+| `docs:` | Documentation |
+| `refactor:` | Structural change with no functional change |
+| `chore:` | Maintenance (dependency updates etc.) |
 
-- Zoom integration (their API requires paid plans)
-- Group/multi-person appointments
-- Any change that introduces keyboard traps or breaks screen reader flow
+## License
+
+By contributing, you agree that your changes will be released under the [MIT License](LICENSE).

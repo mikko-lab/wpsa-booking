@@ -1,5 +1,3 @@
-**v1.6.2 - ZeroClick Sync (2026-03-07)**
-=======
 **A WordPress booking plugin that actually respects your time — and everyone's ability to use it.**
 
 When someone books a consultation, the meeting link appears in their email. The calendar invite works. Screen readers understand what's happening. Nobody has to copy-paste anything, click through three screens, or wonder if the appointment actually exists.
@@ -282,4 +280,3 @@ No copy-pasting. No manual calendar invites. No `<div onClick>` buttons pretendi
 Just: book appointment → get confirmation → meeting link works → everyone's calendar syncs.
 
 **That's it. That's the plugin.**
->>>>>>> 8302e0ef006778c4fd1dc1345aadad9ec259df58

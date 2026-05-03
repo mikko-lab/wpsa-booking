@@ -7,14 +7,16 @@ on:
     branches: [main]
 
 jobs:
-  frontend:
-    name: TypeScript & Build
+  typecheck:
+    name: TypeScript
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -22,11 +24,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run type-check
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
 
       - name: Lint
         run: npm run lint
 
       - name: Build
         run: npm run build
+
+  php:
+    name: PHP Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Lint PHP files
+        run: find . -name "*.php" -not -path "./vendor/*" | xargs php -l

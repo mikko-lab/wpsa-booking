@@ -124,7 +124,7 @@ class WPSA_Booking_REST_API {
                     'required' => false,
                     'default' => 'manual',
                     'validate_callback' => function($param) {
-                        return in_array($param, ['manual', 'google', 'teams'], true);
+                        return in_array($param, ['manual', 'google-meet', 'microsoft-teams'], true);
                     },
                     'sanitize_callback' => 'sanitize_text_field',
                 ],

@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { fi } from 'date-fns/locale';
 
 const Confirmation: React.FC = () => {
-  const { bookingData, sessionId, resetBooking } = useBooking();
+  const { bookingData, sessionId, lockedSlot, resetBooking } = useBooking();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<any>(null);
@@ -49,6 +49,19 @@ const Confirmation: React.FC = () => {
   
   const createBooking = async () => {
     try {
+      // Re-lock the slot right before submitting — extends the lock if it still
+      // exists, or creates a fresh one if it expired during form filling.
+      const date = lockedSlot?.date ?? bookingData.date;
+      const time = lockedSlot?.time ?? bookingData.time;
+      if (date && time) {
+        const lockResult = await api.lockTimeslot(date, time, sessionId);
+        if (!lockResult.success) {
+          setError('Valittu aika ei ole enää saatavilla. Valitse uusi aika.');
+          setLoading(false);
+          return;
+        }
+      }
+
       const result = await api.createBooking({
         service_type: bookingData.service,
         booking_date: bookingData.date,

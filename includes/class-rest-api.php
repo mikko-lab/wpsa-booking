@@ -254,23 +254,20 @@ class WPSA_Booking_REST_API {
         // Tarkista että käyttäjällä on lukitus tälle ajalle
         $lock_manager = new WPSA_Timeslot_Lock();
         $lock = $lock_manager->get_lock($date, $time);
-        
-        // Debug logging
-        error_log("WPSA Lock Check: date=$date, time=$time, session=$session_id");
-        if ($lock) {
-            error_log("WPSA Lock Found: session=" . $lock->session_id . ", expires=" . $lock->expires_at);
-        } else {
-            error_log("WPSA Lock Not Found");
-        }
-        
-        if (!$lock || $lock->session_id !== $session_id) {
-            error_log('WPSA Lock Error: ' . (!$lock ? 'lock not found' : 'session mismatch') . " for date=$date time=$time");
 
-            return new WP_Error(
-                'no_lock',
-                'Sinulla ei ole lukitusta tälle ajalle. Valitse aika uudelleen.',
-                ['status' => 403]
-            );
+        if ( ! $lock || $lock->session_id !== $session_id ) {
+            // Lukitus puuttuu tai on vanhentunut — yritetään luoda se uudelleen
+            // (suojaa myös tilanteen jossa session_id ei täsmää aiempaan lukitukseen)
+            $relock = $lock_manager->lock_timeslot( $date, $time, $session_id );
+
+            if ( is_wp_error( $relock ) ) {
+                // Aika on jonkin muun lukitsema tai jo varattu
+                return new WP_Error(
+                    'no_lock',
+                    'Tämä aika ei ole enää saatavilla. Valitse uusi aika.',
+                    ['status' => 403]
+                );
+            }
         }
         
         // Validoi että aika on yhä vapaa

@@ -247,8 +247,7 @@ class WPSA_Booking_Admin_Settings {
                 <?php if ($access_token): ?>
                     <div class="notice notice-success inline">
                         <p><strong>✓ Google Calendar yhdistetty!</strong></p>
-                        <p>Access Token: <code><?php echo substr($access_token, 0, 50); ?>...</code></p>
-                        <p>Token expires: <?php echo date('Y-m-d H:i:s', get_option('wpsa_booking_google_token_expires', 0)); ?></p>
+                        <p>Token vanhenee: <?php echo esc_html(date('Y-m-d H:i:s', get_option('wpsa_booking_google_token_expires', 0))); ?></p>
                     </div>
                     
                     <form method="post" action="">
@@ -446,21 +445,25 @@ class WPSA_Booking_Admin_Settings {
     }
     
     /**
-     * Generate Google OAuth authorization URL
+     * Generate Google OAuth authorization URL with CSRF state
      */
     private static function get_google_auth_url() {
         $client_id = get_option('wpsa_booking_google_client_id', '');
         $redirect_uri = admin_url('admin.php?page=wpsa-zeroclick-settings');
-        
+
+        $state = wp_create_nonce('wpsa_google_oauth');
+        set_transient('wpsa_google_oauth_state', $state, 600);
+
         $params = [
-            'client_id' => $client_id,
-            'redirect_uri' => $redirect_uri,
+            'client_id'     => $client_id,
+            'redirect_uri'  => $redirect_uri,
             'response_type' => 'code',
-            'scope' => 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
-            'access_type' => 'offline',
-            'prompt' => 'consent',
+            'scope'         => 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
+            'access_type'   => 'offline',
+            'prompt'        => 'consent',
+            'state'         => $state,
         ];
-        
+
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
     }
     
@@ -471,38 +474,48 @@ class WPSA_Booking_Admin_Settings {
         if (!isset($_GET['code'])) {
             return;
         }
-        
-        $client_id = get_option('wpsa_booking_google_client_id', '');
+
+        // Verify state to prevent CSRF
+        $state       = isset($_GET['state']) ? sanitize_text_field($_GET['state']) : '';
+        $saved_state = get_transient('wpsa_google_oauth_state');
+
+        if (empty($state) || empty($saved_state) || !hash_equals($saved_state, $state)) {
+            wp_die('Virheellinen state-parametri. Yritä uudelleen.');
+        }
+
+        delete_transient('wpsa_google_oauth_state');
+
+        $client_id    = get_option('wpsa_booking_google_client_id', '');
         $client_secret = get_option('wpsa_booking_google_client_secret', '');
-        $redirect_uri = admin_url('admin.php?page=wpsa-zeroclick-settings');
-        
-        // Exchange code for tokens
+        $redirect_uri  = admin_url('admin.php?page=wpsa-zeroclick-settings');
+
         $response = wp_remote_post('https://oauth2.googleapis.com/token', [
             'body' => [
-                'code' => $_GET['code'],
-                'client_id' => $client_id,
+                'code'          => sanitize_text_field($_GET['code']),
+                'client_id'     => $client_id,
                 'client_secret' => $client_secret,
-                'redirect_uri' => $redirect_uri,
-                'grant_type' => 'authorization_code',
+                'redirect_uri'  => $redirect_uri,
+                'grant_type'    => 'authorization_code',
             ],
         ]);
-        
+
         if (is_wp_error($response)) {
-            wp_die('OAuth error: ' . $response->get_error_message());
+            wp_die('OAuth error: ' . esc_html($response->get_error_message()));
         }
-        
+
         $body = json_decode(wp_remote_retrieve_body($response), true);
-        
+
         if (isset($body['access_token'])) {
-            update_option('wpsa_booking_google_access_token', $body['access_token']);
-            update_option('wpsa_booking_google_refresh_token', $body['refresh_token'] ?? '');
+            // Encrypt tokens before storing (same as Teams integration)
+            update_option('wpsa_booking_google_access_token', WPSA_Token_Encryption::encrypt($body['access_token']));
+            $refresh = $body['refresh_token'] ?? '';
+            update_option('wpsa_booking_google_refresh_token', $refresh ? WPSA_Token_Encryption::encrypt($refresh) : '');
             update_option('wpsa_booking_google_token_expires', time() + ($body['expires_in'] ?? 3600));
-            
-            // Redirect to remove code from URL
+
             wp_redirect(admin_url('admin.php?page=wpsa-zeroclick-settings&oauth=success'));
             exit;
         } else {
-            wp_die('OAuth failed: ' . print_r($body, true));
+            wp_die('OAuth epäonnistui. Tarkista Client ID ja Client Secret.');
         }
     }
 }

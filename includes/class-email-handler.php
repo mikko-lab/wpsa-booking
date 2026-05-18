@@ -80,7 +80,7 @@ class WPSA_Booking_Email_Handler {
         $booking_code = self::generate_booking_code($booking_id);
         
         // Peruutuslinkki
-        $cancel_token = md5($booking_id . 'wpsa_secret_salt');
+        $cancel_token = WPSA_Booking_REST_API::generate_cancel_token($booking_id);
         $cancel_url = add_query_arg([
             'action' => 'cancel_booking',
             'id' => $booking_id,

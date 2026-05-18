@@ -173,6 +173,11 @@ class WPSA_Booking {
     }
     
     private function set_default_options() {
+        // Generate a persistent secret for cancel tokens if not yet set
+        if ( false === get_option( 'wpsa_cancel_secret' ) ) {
+            add_option( 'wpsa_cancel_secret', wp_generate_password( 64, true, true ) );
+        }
+
         $defaults = [
             'wpsa_booking_services' => [
                 [

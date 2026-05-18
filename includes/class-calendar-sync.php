@@ -110,8 +110,9 @@ class WPSA_Booking_Calendar_Sync {
      * @since 1.3.0 Changed to public for Video Provider access
      */
     public static function create_google_calendar_event($booking_id, $data) {
-        $access_token = get_option('wpsa_booking_google_access_token');
-        
+        $encrypted = get_option('wpsa_booking_google_access_token');
+        $access_token = $encrypted ? WPSA_Token_Encryption::decrypt($encrypted) : false;
+
         if (!$access_token) {
             throw new Exception('Google Calendar access token missing');
         }
@@ -242,12 +243,13 @@ class WPSA_Booking_Calendar_Sync {
             return;
         }
         
-        $access_token = get_option('wpsa_booking_google_access_token');
-        
+        $encrypted = get_option('wpsa_booking_google_access_token');
+        $access_token = $encrypted ? WPSA_Token_Encryption::decrypt($encrypted) : false;
+
         if (!$access_token) {
             return;
         }
-        
+
         // Poista Google Calendar tapahtuma
         wp_remote_request(
             sprintf(
@@ -267,34 +269,35 @@ class WPSA_Booking_Calendar_Sync {
      * Refresh Google OAuth token
      */
     public static function refresh_access_token() {
-        $refresh_token = get_option('wpsa_booking_google_refresh_token');
-        $client_id = get_option('wpsa_booking_google_client_id');
-        $client_secret = get_option('wpsa_booking_google_client_secret');
-        
+        $encrypted_refresh = get_option('wpsa_booking_google_refresh_token');
+        $refresh_token     = $encrypted_refresh ? WPSA_Token_Encryption::decrypt($encrypted_refresh) : false;
+        $client_id         = get_option('wpsa_booking_google_client_id');
+        $client_secret     = get_option('wpsa_booking_google_client_secret');
+
         if (!$refresh_token || !$client_id || !$client_secret) {
             return false;
         }
-        
+
         $response = wp_remote_post('https://oauth2.googleapis.com/token', [
             'body' => [
-                'client_id' => $client_id,
+                'client_id'     => $client_id,
                 'client_secret' => $client_secret,
                 'refresh_token' => $refresh_token,
-                'grant_type' => 'refresh_token',
+                'grant_type'    => 'refresh_token',
             ],
         ]);
-        
+
         if (is_wp_error($response)) {
             return false;
         }
-        
+
         $body = json_decode(wp_remote_retrieve_body($response), true);
-        
+
         if (isset($body['access_token'])) {
-            update_option('wpsa_booking_google_access_token', $body['access_token']);
+            update_option('wpsa_booking_google_access_token', WPSA_Token_Encryption::encrypt($body['access_token']));
             return true;
         }
-        
+
         return false;
     }
 }

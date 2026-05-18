@@ -26,12 +26,14 @@ class WPSA_Booking_REST_API {
                 'date' => [
                     'required' => true,
                     'validate_callback' => function($param) {
-                        return strtotime($param) !== false;
-                    }
+                        return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $param) && strtotime($param) !== false;
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
                 ],
                 'service' => [
                     'required' => false,
-                    'default' => 'risk-assessment'
+                    'default' => 'risk-assessment',
+                    'sanitize_callback' => 'sanitize_text_field',
                 ],
                 'session_id' => [
                     'required' => false,
@@ -46,9 +48,24 @@ class WPSA_Booking_REST_API {
             'callback' => [__CLASS__, 'lock_timeslot'],
             'permission_callback' => '__return_true',
             'args' => [
-                'date' => ['required' => true],
-                'time' => ['required' => true],
-                'session_id' => ['required' => true]
+                'date' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $param) && strtotime($param) !== false;
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'time' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return (bool) preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $param);
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'session_id' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
             ]
         ]);
         
@@ -58,9 +75,24 @@ class WPSA_Booking_REST_API {
             'callback' => [__CLASS__, 'unlock_timeslot'],
             'permission_callback' => '__return_true',
             'args' => [
-                'date' => ['required' => true],
-                'time' => ['required' => true],
-                'session_id' => ['required' => true]
+                'date' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $param) && strtotime($param) !== false;
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'time' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return (bool) preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $param);
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'session_id' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
             ]
         ]);
         
@@ -70,16 +102,40 @@ class WPSA_Booking_REST_API {
             'callback' => [__CLASS__, 'create_booking'],
             'permission_callback' => '__return_true',
             'args' => [
-                'service_type' => ['required' => true],
-                'booking_date' => ['required' => true],
-                'booking_time' => ['required' => true],
+                'service_type' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'booking_date' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $param) && strtotime($param) !== false;
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'booking_time' => [
+                    'required' => true,
+                    'validate_callback' => function($param) {
+                        return (bool) preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $param);
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'meeting_platform' => [
+                    'required' => false,
+                    'default' => 'manual',
+                    'validate_callback' => function($param) {
+                        return in_array($param, ['manual', 'google', 'teams'], true);
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
                 'customer_name' => [
                     'required' => true,
                     'sanitize_callback' => 'sanitize_text_field'
                 ],
                 'customer_email' => [
                     'required' => true,
-                    'validate_callback' => 'is_email'
+                    'validate_callback' => 'is_email',
+                    'sanitize_callback' => 'sanitize_email',
                 ],
                 'customer_phone' => [
                     'required' => false,
@@ -208,16 +264,12 @@ class WPSA_Booking_REST_API {
         }
         
         if (!$lock || $lock->session_id !== $session_id) {
-            $error_detail = !$lock 
-                ? 'Lock not found (expired or never created)' 
-                : 'Session mismatch (expected: ' . $lock->session_id . ', got: ' . $session_id . ')';
-            
-            error_log("WPSA Lock Error: " . $error_detail);
-            
+            error_log('WPSA Lock Error: ' . (!$lock ? 'lock not found' : 'session mismatch') . " for date=$date time=$time");
+
             return new WP_Error(
                 'no_lock',
                 'Sinulla ei ole lukitusta tälle ajalle. Valitse aika uudelleen.',
-                ['status' => 403, 'debug' => $error_detail]
+                ['status' => 403]
             );
         }
         
@@ -388,29 +440,63 @@ class WPSA_Booking_REST_API {
     }
     
     /**
-     * Permission callback: Verify booking owner
+     * Permission callback: Verify booking owner via HMAC token
      */
     public static function verify_booking_owner($request) {
-        // Yksinkertainen token-validointi
-        // Tuotannossa käytä vahvempia menetelmiä
         $token = $request->get_param('token');
-        $booking_id = $request->get_param('id');
-        
-        $expected_token = md5($booking_id . 'wpsa_secret_salt');
-        
-        return $token === $expected_token;
+        $booking_id = absint($request->get_param('id'));
+
+        if (empty($token) || empty($booking_id)) {
+            return false;
+        }
+
+        $expected_token = self::generate_cancel_token($booking_id);
+
+        return hash_equals($expected_token, $token);
+    }
+
+    /**
+     * Generate a cancel token for a booking using HMAC-SHA256
+     */
+    public static function generate_cancel_token($booking_id) {
+        $secret = get_option('wpsa_cancel_secret');
+        return wp_hash($booking_id . '|cancel|' . $secret, 'secure_auth');
     }
     
     /**
+     * Check IP-based rate limit using transients (max 10 locks per 15 min)
+     */
+    private static function check_lock_rate_limit() {
+        $ip    = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0' );
+        $key   = 'wpsa_lock_rate_' . md5( $ip );
+        $count = (int) get_transient( $key );
+
+        if ( $count >= 10 ) {
+            return false;
+        }
+
+        set_transient( $key, $count + 1, 15 * MINUTE_IN_SECONDS );
+        return true;
+    }
+
+    /**
      * Lock a timeslot
-     * 
+     *
      * POST /wpsa-zeroclick/v1/lock-timeslot
      */
     public static function lock_timeslot($request) {
+        if ( ! self::check_lock_rate_limit() ) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Liian monta pyyntöä. Yritä hetken kuluttua uudelleen.',
+                'code'    => 'rate_limited',
+            ], 429);
+        }
+
         $date = sanitize_text_field($request['date']);
         $time = sanitize_text_field($request['time']);
         $session_id = sanitize_text_field($request['session_id']);
-        
+
         $lock_manager = new WPSA_Timeslot_Lock();
         $result = $lock_manager->lock_timeslot($date, $time, $session_id);
         

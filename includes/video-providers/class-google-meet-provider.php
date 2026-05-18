@@ -87,8 +87,8 @@ class WPSA_Google_Meet_Provider implements WPSA_Video_Provider {
      * @return bool True if configured
      */
     public function is_configured() {
-        $access_token = get_option('wpsa_booking_google_access_token', '');
-        return !empty($access_token);
+        $encrypted = get_option('wpsa_booking_google_access_token', '');
+        return !empty($encrypted) && WPSA_Token_Encryption::decrypt($encrypted) !== false;
     }
     
     /**
